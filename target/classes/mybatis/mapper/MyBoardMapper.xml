@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- 해당 xml파일이 mapper역할을 하기 위해서 반드시 필요한 Doctype -->
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 
+매퍼의 namespace속성
+	: 해당 매퍼파일을 호출하기 위해 정의한 인터페이스의
+	패키지를 포함한 풀 경로를 기술한다. 해당 인터페이스는
+	컨트롤러와 Mapper(DAO) 사이에서 중재자 역할을 하는
+	서비스 객체로 사용된다.
+	
+id속성
+	: 실제 호출되는 함수명과 동일한 이름으로 기술한다.
+	
+resultType
+	: 쿼리 실행 후 반환되는 값의 타입을 명시한다. 이때는
+	패키지명을 포함한 풀 경로를 기술해야 한다.
+parameterType
+	: 쿼리문에서 사용할 파라미터를 저장한 DTO 혹은 VO객체의
+	타입을 명시한다. 패키지명을 포함한 풀 경로를 기술해야 한다.
+-->
+
+<!-- 
+Mapper에서의 파라미터 사용법
+
+형식1) listPage(int s, int e) 와 같이 추상메소드를 통해
+	파라미터가 전달되면 순서대로 param1, param2로 사용할 수 있다.
+-->
+
+<!-- 
+select 
+	: select문에 해당하는 결과를 반환한다. 아래와 같이 int인
+	경우는 정수값을, DTO객체인 경우에는 해당 레코드를 저장한
+	List계열의 컬렉션으로 반환한다.
+insert
+	: 입력성공시 1, 실패시 0을 반환한다. 만약 insert가
+	여러번 되더라도 성공시에는 1을 반환한다.
+update/delete
+	: 수정, 삭제에 성공한 행의 갯수가 반환된다. 조건에 따라
+	여러개의 레코드가 한꺼번에 적용될 수 있으므로 0,1이 아닌
+	더 큰값이 반환될수도 있다. 실패의 경우 0이 반환된다.
+ -->
+
+<mapper namespace="mybatis.MybatisDAOImpl">
+	
+	<!-- ##2차 버전에서 사용## -->
+	<!-- 
+		검색어 처리 : 검색어가 있는 경우 동적으로 쿼리문을 변경해야
+			하므로 동적쿼리를 위해 <if 태그를 사용한다. JSTL과
+			사용법이 동일하다.
+	-->
+	
+	<!-- 검색 2차 -->
+<!-- 	<select id="getTotalCount" resultType="int" -->
+<!-- 	parameterType="mybatis.ParameterDTO"> -->
+<!-- 		SELECT COUNT(*) from myboard -->
+<!-- 		<if test="searchTxt!=null and !searchTxt.equals('')"> -->
+<!-- 			WHERE ${searchField} like '%'||#{searchTxt}||'%' -->
+<!-- 		</if> -->
+<!-- 	</select> -->
+	
+<!-- 	 <select id="listPage" resultType="mybatis.MyBoardDTO" -->
+<!-- 	 parameterType="mybatis.ParameterDTO"> -->
+<!--       SELECT * FROM ( -->
+<!--          SELECT Tb.* , rownum rNum FROM ( -->
+<!--             SELECT * FROM myboard -->
+<!--             <if test="searchTxt!=null and !searchTxt.equals('')"> -->
+<!--             	WHERE ${searchField} like '%'||#{searchTxt}||'%' -->
+<!--             </if> -->
+<!--              ORDER BY idx DESC -->
+<!--             ) Tb -->
+<!--          ) -->
+         
+<!--          WHERE rNUM <![CDATA[>=]]> #{start} AND rNum <![CDATA[<=]]> #{end} -->
+<!--    </select> -->
+   
+   
+   <select id="getTotalCount" resultType="int"
+	parameterType="mybatis.ParameterDTO">
+		SELECT COUNT(*) from myboard
+		<if test="searchTxt!=null">
+			WHERE
+			<foreach collection="searchTxt" item="str" open="(" close=")"
+				separator="or">
+					${searchField} like '%'||#{str}||'%'
+			</foreach>
+		</if>
+	</select>
+	
+	 <select id="listPage" resultType="mybatis.MyBoardDTO"
+	 parameterType="mybatis.ParameterDTO">
+      SELECT * FROM (
+         SELECT Tb.* , rownum rNum FROM (
+            SELECT * FROM myboard
+            <if test="searchTxt!=null">
+            	WHERE
+            	<foreach collection="searchTxt" item="str" open="(" close=")"
+					separator="or">
+						${searchField} like '%'||#{str}||'%'
+			</foreach>
+            </if>
+             ORDER BY idx DESC
+            ) Tb
+         )
+         
+         WHERE rNUM <![CDATA[>=]]> #{start} AND rNum <![CDATA[<=]]> #{end}
+   </select>
+   
+   <!-- 
+   		CDATA : Unparsed Character Data. 파싱되지 않는 문자데이터를
+   			의미하는 용어로 Mapper에서는 꺽쇄로 시작되는 모든 문자를
+   			엘리먼트로 판단하기 때문에 쿼리문 사이에 비교연산자를
+   			사용할때는 반드시 위와같이 처리해야 한다.
+   -->
+   
+   <!-- WHERE rNUM BETWEEN #{start} AND #{end} -->
+   
+   <!-- 
+   
+   /<c:url%20value='/mybatis/modifyAction.do'%20/>
+   
+   
+   
+   
+   
+   @Param 어노테이션에서 지정한 명칭을 사용하여 인파라미터를 처리한다.
+   일련번호는 기존 방식과 동일하게 시퀀스를 통해 부여한다.
+   -->
+   <insert id="write">
+		INSERT INTO myboard (idx, id, name, contents)
+		VALUES
+		(myboard_seq.nextval, #{_id}, #{_name}, #{_contents})
+   </insert>
+   
+   <!--  
+   매개변수로 전달된 DTO객체의 멤버변수명만 명시하면
+   내부적으로 getter()가 호출되어 값을 얻어올 수 있다.
+   (EL과 동일하다)
+   -->
+   <select id="view" resultType="mybatis.MyBoardDTO"
+	   	parameterType="mybatis.ParameterDTO">
+	   	SELECT * FROM myboard WHERE idx=#{board_idx}
+	   		AND id=#{user_id}
+   </select>
+   
+   <!-- 게시물 수정하기 -->
+   <update id="modify" parameterType="mybatis.MyBoardDTO">
+      UPDATE myboard SET name=#{name}, contents=#{contents} 
+      WHERE idx=#{idx} AND id=#{id}
+   </update>
+   
+   <!-- 게시물 삭제하기 -->
+   <delete id="delete">
+   		DELETE FROM myboard WHERE idx=#{param1} AND id=#{param2}
+   </delete>
+   
+
+</mapper>
